@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SWAPIFY — Face Swap IA</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #080810; --paper: #f0eee8; --accent: #7c4dff;
+    --accent2: #e040fb; --gold: #ffd740; --muted: #6b6880;
+    --green: #69f0ae; --red: #ff5252; --surface: rgba(255,255,255,0.04);
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--ink); color: var(--paper); font-family: 'DM Mono', monospace; min-height: 100vh; overflow-x: hidden; }
+  .bg { position: fixed; inset: 0; z-index: 0; background: radial-gradient(ellipse 70% 50% at 10% 10%, rgba(124,77,255,0.12) 0%, transparent 60%), radial-gradient(ellipse 60% 60% at 90% 90%, rgba(224,64,251,0.08) 0%, transparent 60%); pointer-events: none; }
+
+  .container { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 0 1.5rem; }
+
+  header { padding: 1.8rem 0 1.2rem; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.5rem; letter-spacing: 0.1em; background: linear-gradient(135deg, #7c4dff, #e040fb); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .badge { font-size: 0.6rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); border: 1px solid rgba(255,255,255,0.1); padding: 0.3em 0.75em; border-radius: 100px; }
+
+  /* TOKEN */
+  .token-bar { background: rgba(124,77,255,0.07); border: 1px solid rgba(124,77,255,0.2); border-radius: 14px; padding: 1.2rem 1.5rem; margin: 1.2rem 0; display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+  .token-label { font-size: 0.6rem; letter-spacing: 0.15em; text-transform: uppercase; color: #7c4dff; white-space: nowrap; }
+  .token-input { flex: 1; min-width: 200px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 0.6rem 0.9rem; color: var(--paper); font-family: 'DM Mono', monospace; font-size: 0.75rem; outline: none; }
+  .token-input:focus { border-color: #7c4dff; }
+  .token-input::placeholder { color: rgba(255,255,255,0.2); }
+  .token-btn { padding: 0.6rem 1.2rem; background: #7c4dff; border: none; border-radius: 8px; color: white; font-family: 'Syne', sans-serif; font-weight: 600; font-size: 0.7rem; letter-spacing: 0.08em; cursor: pointer; white-space: nowrap; transition: opacity 0.2s; }
+  .token-btn:hover { opacity: 0.85; }
+  .token-saved { font-size: 0.62rem; width: 100%; display: none; }
+  .token-saved.ok { color: var(--green); display: block; }
+  .token-saved.err { color: var(--red); display: block; }
+
+  /* HERO */
+  .hero { padding: 2.5rem 0 1.5rem; text-align: center; }
+  .hero h1 { font-family: 'Syne', sans-serif; font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 800; line-height: 1.1; margin-bottom: 0.75rem; }
+  .hero h1 span { background: linear-gradient(135deg, #7c4dff, #e040fb); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .hero p { color: var(--muted); font-size: 0.78rem; max-width: 400px; margin: 0 auto; line-height: 1.8; }
+
+  /* MODE TABS */
+  .mode-wrap { text-align: center; margin: 1.5rem 0; }
+  .mode-tabs { display: inline-flex; gap: 0.35rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 0.3rem; }
+  .mode-tab { padding: 0.5rem 1.3rem; border-radius: 8px; border: none; font-family: 'DM Mono', monospace; font-size: 0.65rem; letter-spacing: 0.08em; cursor: pointer; transition: all 0.2s; background: transparent; color: var(--muted); }
+  .mode-tab.active { background: linear-gradient(135deg, #7c4dff, #e040fb); color: white; box-shadow: 0 3px 15px rgba(124,77,255,0.4); }
+
+  /* CARD */
+  .card { background: var(--surface); border: 1px solid rgba(255,255,255,0.07); border-radius: 20px; padding: 2rem; margin-bottom: 2rem; }
+
+  /* UPLOAD ZONES */
+  .upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; margin-bottom: 1.5rem; }
+  @media(max-width:600px) { .upload-grid { grid-template-columns: 1fr; } }
+  .upload-zone { border: 1.5px dashed rgba(255,255,255,0.12); border-radius: 12px; min-height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.6rem; cursor: pointer; transition: all 0.2s; position: relative; overflow: hidden; text-align: center; padding: 1.5rem; }
+  .upload-zone:hover { border-color: #7c4dff; background: rgba(124,77,255,0.05); }
+  .upload-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .zone-icon { font-size: 2rem; opacity: 0.5; }
+  .zone-title { font-family: 'Syne', sans-serif; font-size: 0.78rem; font-weight: 600; color: var(--paper); }
+  .zone-sub { font-size: 0.62rem; color: var(--muted); line-height: 1.5; }
+  .zone-tag { position: absolute; top: 10px; left: 10px; background: linear-gradient(135deg, #7c4dff, #e040fb); color: white; font-size: 0.55rem; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.25em 0.6em; border-radius: 100px; font-family: 'Syne', sans-serif; font-weight: 600; }
+  .preview-media { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 10px; }
+  .preview-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.6); border-radius: 10px; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase; }
+  .upload-zone:hover .preview-overlay { opacity: 1; }
+
+  /* SWAP BTN */
+  .swap-btn { width: 100%; padding: 1rem; background: linear-gradient(135deg, #7c4dff, #e040fb); color: white; border: none; border-radius: 12px; font-family: 'Syne', sans-serif; font-weight: 800; font-size: 0.85rem; letter-spacing: 0.15em; text-transform: uppercase; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; position: relative; overflow: hidden; }
+  .swap-btn::before { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 60%); pointer-events: none; }
+  .swap-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(124,77,255,0.5); }
+  .swap-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .btn-inner { display: flex; align-items: center; justify-content: center; gap: 0.5rem; }
+
+  /* LOADING */
+  .loading { display: none; margin-top: 1.5rem; text-align: center; padding: 2rem; }
+  .loading.visible { display: block; }
+  .spinner { width: 50px; height: 50px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.05); border-top-color: #7c4dff; animation: spin 1s linear infinite; margin: 0 auto 1rem; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-size: 0.72rem; color: var(--muted); }
+  .progress-bar { width: 100%; max-width: 300px; height: 2px; background: rgba(255,255,255,0.06); border-radius: 100px; margin: 1rem auto 0; overflow: hidden; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, #7c4dff, #e040fb); border-radius: 100px; animation: progress 3s ease-in-out infinite; }
+  @keyframes progress { 0%{width:0%} 50%{width:80%} 100%{width:95%} }
+
+  /* OUTPUT */
+  .output { display: none; margin-top: 1.5rem; }
+  .output.visible { display: block; }
+  .out-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.8rem; }
+  .out-title { font-size: 0.58rem; letter-spacing: 0.2em; text-transform: uppercase; color: #7c4dff; }
+  .dl-btn { padding: 0.35em 0.9em; background: rgba(124,77,255,0.15); border: 1px solid rgba(124,77,255,0.3); border-radius: 6px; color: #7c4dff; font-family: 'DM Mono', monospace; font-size: 0.62rem; cursor: pointer; transition: all 0.2s; }
+  .dl-btn:hover { background: rgba(124,77,255,0.25); }
+  .result-frame { border-radius: 14px; overflow: hidden; border: 1px solid rgba(255,255,255,0.08); background: #000; }
+  .result-frame img, .result-frame video { width: 100%; display: block; max-height: 500px; object-fit: contain; }
+
+  /* ERROR */
+  .err { background: rgba(255,82,82,0.07); border: 1px solid rgba(255,82,82,0.2); border-radius: 10px; padding: 0.9rem 1.1rem; font-size: 0.7rem; color: rgba(255,82,82,0.9); line-height: 1.7; margin-top: 1rem; display: none; }
+  .err.visible { display: block; }
+
+  footer { border-top: 1px solid rgba(255,255,255,0.05); padding: 1.5rem 0; text-align: center; font-size: 0.6rem; color: rgba(255,255,255,0.12); letter-spacing: 0.08em; position: relative; z-index: 1; }
+</style>
+</head>
+<body>
+<div class="bg"></div>
+
+<div class="container">
+  <header>
+    <div class="logo">SWAPIFY</div>
+    <div class="badge">Face Swap IA · Gratuit</div>
+  </header>
+
+  <!-- TOKEN -->
+  <div class="token-bar">
+    <div class="token-label">🔑 Token HF</div>
+    <input class="token-input" type="password" id="hfKey" placeholder="hf_xxxxxxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+    <button class="token-btn" onclick="saveKey()">Enregistrer</button>
+    <div class="token-saved" id="tokenSaved"></div>
+  </div>
+
+  <!-- HERO -->
+  <div class="hero">
+    <h1>Face Swap<br><span>instantané</span></h1>
+    <p>Échange n'importe quel visage sur une photo ou une vidéo en quelques secondes avec l'IA.</p>
+  </div>
+
+  <!-- MODE -->
+  <div class="mode-wrap">
+    <div class="mode-tabs">
+      <button class="mode-tab active" id="tabPhoto" onclick="setMode('photo')">🖼️ Photo</button>
+      <button class="mode-tab" id="tabVideo" onclick="setMode('video')">🎬 Vidéo</button>
+    </div>
+  </div>
+
+  <!-- STUDIO -->
+  <div class="card">
+    <div class="upload-grid">
+      <!-- Source -->
+      <div class="upload-zone" id="sourceZone">
+        <input type="file" id="sourceFile" accept="image/*" onchange="loadSource(this)">
+        <div class="zone-tag">Visage source</div>
+        <div class="zone-icon">😊</div>
+        <div class="zone-title">Visage à copier</div>
+        <div class="zone-sub">Photo nette, visage bien visible<br>PNG, JPG — max 10 Mo</div>
+        <div class="preview-overlay">✎ Changer</div>
+      </div>
+
+      <!-- Target -->
+      <div class="upload-zone" id="targetZone">
+        <input type="file" id="targetFile" accept="image/*,video/*" onchange="loadTarget(this)">
+        <div class="zone-tag" id="targetTag">Photo cible</div>
+        <div class="zone-icon">🎯</div>
+        <div class="zone-title" id="targetTitle">Photo à modifier</div>
+        <div class="zone-sub" id="targetSub">Photo avec le visage à remplacer<br>PNG, JPG — max 10 Mo</div>
+        <div class="preview-overlay">✎ Changer</div>
+      </div>
+    </div>
+
+    <button class="swap-btn" id="swapBtn" onclick="doSwap()">
+      <span class="btn-inner">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+        Lancer le Face Swap
+      </span>
+    </button>
+
+    <div class="err" id="errBox"></div>
+
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <div class="loading-text" id="loadingText">Analyse des visages…</div>
+      <div class="progress-bar"><div class="progress-fill"></div></div>
+    </div>
+
+    <div class="output" id="output">
+      <div class="out-header">
+        <span class="out-title">Résultat</span>
+        <button class="dl-btn" id="dlBtn">↓ Télécharger</button>
+      </div>
+      <div class="result-frame" id="resultFrame"></div>
+    </div>
+  </div>
+
+  <footer>SWAPIFY · Face Swap IA · Usage personnel uniquement · 2026</footer>
+</div>
+
+<script>
+let currentMode = 'photo';
+let sourceB64 = null;
+let targetB64 = null;
+let busy = false;
+
+// TOKEN
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem('swapify_hf');
+  if (saved) document.getElementById('hfKey').value = saved;
+});
+function saveKey() {
+  const val = document.getElementById('hfKey').value.trim();
+  const el = document.getElementById('tokenSaved');
+  if (!val || !val.startsWith('hf_')) {
+    el.textContent = '⚠ Token invalide — doit commencer par hf_';
+    el.className = 'token-saved err'; return;
+  }
+  localStorage.setItem('swapify_hf', val);
+  el.textContent = '✓ Token enregistré !';
+  el.className = 'token-saved ok';
+  setTimeout(() => el.style.display = 'none', 2000);
+}
+
+// MODE
+function setMode(m) {
+  currentMode = m;
+  document.getElementById('tabPhoto').classList.toggle('active', m === 'photo');
+  document.getElementById('tabVideo').classList.toggle('active', m === 'video');
+  const tf = document.getElementById('targetFile');
+  const tag = document.getElementById('targetTag');
+  const title = document.getElementById('targetTitle');
+  const sub = document.getElementById('targetSub');
+  if (m === 'video') {
+    tf.accept = 'video/*';
+    tag.textContent = 'Vidéo cible';
+    title.textContent = 'Vidéo à modifier';
+    sub.textContent = 'MP4, MOV — max 50 Mo';
+  } else {
+    tf.accept = 'image/*';
+    tag.textContent = 'Photo cible';
+    title.textContent = 'Photo à modifier';
+    sub.textContent = 'Photo avec le visage à remplacer\nPNG, JPG — max 10 Mo';
+  }
+  targetB64 = null;
+  const old = document.getElementById('targetZone').querySelector('.preview-media');
+  if (old) old.remove();
+  document.getElementById('output').classList.remove('visible');
+  document.getElementById('errBox').classList.remove('visible');
+}
+
+// LOAD IMAGES
+function loadSource(input) {
+  if (!input.files[0]) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    sourceB64 = e.target.result;
+    applyPreview('sourceZone', sourceB64, 'image');
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+
+function loadTarget(input) {
+  if (!input.files[0]) return;
+  const file = input.files[0];
+  const isVideo = file.type.startsWith('video/');
+  const reader = new FileReader();
+  reader.onload = e => {
+    targetB64 = e.target.result;
+    applyPreview('targetZone', targetB64, isVideo ? 'video' : 'image');
+  };
+  reader.readAsDataURL(file);
+}
+
+function applyPreview(zoneId, src, type) {
+  const zone = document.getElementById(zoneId);
+  const old = zone.querySelector('.preview-media');
+  if (old) old.remove();
+  const el = document.createElement(type === 'video' ? 'video' : 'img');
+  el.src = src;
+  el.className = 'preview-media';
+  if (type === 'video') { el.muted = true; el.loop = true; el.autoplay = true; el.playsinline = true; }
+  zone.insertBefore(el, zone.firstChild);
+  zone.querySelector('.zone-icon').style.display = 'none';
+  zone.querySelector('.zone-title').style.display = 'none';
+  zone.querySelector('.zone-sub').style.display = 'none';
+}
+
+// SWAP
+async function doSwap() {
+  if (busy) return;
+  if (!sourceB64) { showErr('⚠ Ajoute une photo source (le visage à copier) !'); return; }
+  if (!targetB64) { showErr('⚠ Ajoute une photo ou vidéo cible !'); return; }
+
+  const hfKey = localStorage.getItem('swapify_hf') || document.getElementById('hfKey').value.trim();
+  if (!hfKey || !hfKey.startsWith('hf_')) {
+    showErr('⚠ Entre ton token Hugging Face (hf_...) en haut !'); return;
+  }
+
+  busy = true;
+  document.getElementById('swapBtn').disabled = true;
+  document.getElementById('output').classList.remove('visible');
+  document.getElementById('errBox').classList.remove('visible');
+  document.getElementById('loading').classList.add('visible');
+
+  const loadingMessages = [
+    'Détection des visages…',
+    'Analyse des traits du visage…',
+    'Application du swap…',
+    'Optimisation du résultat…',
+    'Finalisation…'
+  ];
+  let msgIdx = 0;
+  const msgInterval = setInterval(() => {
+    msgIdx = (msgIdx + 1) % loadingMessages.length;
+    document.getElementById('loadingText').textContent = loadingMessages[msgIdx];
+  }, 2000);
+
+  try {
+    const body = {
+      source_image: sourceB64,
+      mode: currentMode
+    };
+    if (currentMode === 'video') body.target_video = targetB64;
+    else body.target_image = targetB64;
+
+    const res = await fetch('/api/swap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`);
+    if (!data.result) throw new Error('Aucun résultat reçu');
+
+    clearInterval(msgInterval);
+    finishOk(data.result, data.mode);
+  } catch (err) {
+    clearInterval(msgInterval);
+    finishErr(err.message);
+  }
+}
+
+function finishOk(url, mode) {
+  document.getElementById('loading').classList.remove('visible');
+  busy = false;
+  document.getElementById('swapBtn').disabled = false;
+
+  const frame = document.getElementById('resultFrame');
+  if (mode === 'video') {
+    frame.innerHTML = `<video src="${url}" controls autoplay loop playsinline></video>`;
+  } else {
+    frame.innerHTML = `<img src="${url}" alt="Résultat face swap">`;
+  }
+
+  document.getElementById('dlBtn').onclick = () => {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = mode === 'video' ? 'swapify-video.mp4' : 'swapify-photo.jpg';
+    a.click();
+  };
+
+  document.getElementById('output').classList.add('visible');
+  document.getElementById('output').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function finishErr(msg) {
+  document.getElementById('loading').classList.remove('visible');
+  busy = false;
+  document.getElementById('swapBtn').disabled = false;
+  showErr(msg);
+}
+
+function showErr(msg) {
+  const box = document.getElementById('errBox');
+  box.innerHTML = `⚠ <strong>Erreur :</strong> ${msg}`;
+  box.classList.add('visible');
+}
+</script>
+</body>
+</html>
