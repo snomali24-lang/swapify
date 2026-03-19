@@ -53,7 +53,8 @@ module.exports = async function handler(req, res) {
       } catch {}
     }
 
-    throw new Error('Résultat introuvable dans la réponse');
+    // Retourner le texte brut pour déboguer
+return res.status(200).json({ debug: lines.slice(0, 5), raw: text.slice(0, 500) });
 
   } catch (err) {
     return res.status(500).json({ error: err.message || 'Erreur serveur' });
