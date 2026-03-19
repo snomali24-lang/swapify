@@ -14,7 +14,7 @@ module.exports = async function handler(req, res) {
     const session_hash = Math.random().toString(36).substring(2, 12);
 
     // Soumettre au Space InsightFace
-    const joinRes = await fetch('https://felixrosberg-face-swap.hf.space/run/predict', {
+    const joinRes = await fetch('https://mindsync-faceswap.hf.space/run/predict', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -22,7 +22,7 @@ module.exports = async function handler(req, res) {
       },
       body: JSON.stringify({
         fn_index: 0,
-        data: [source_image, target_image, 0, false],
+        data: [source_image, target_image],
         session_hash
       })
     });
